@@ -50,6 +50,18 @@ namespace Fantastic7
         {
             return _pos;
         }
+
+        public Rectangle? CollisionRect()
+        {
+            if (_sprite is NSprite)
+            {
+                NSprite n = (NSprite)_sprite;
+                int width = n.getRect().Width;
+                int height = n.getRect().Height;
+                return new Rectangle((int)_pos.X, (int)_pos.Y, width, height);
+            }
+            return null;
+        }
     }
 
     class Entity : GObject
@@ -96,9 +108,6 @@ namespace Fantastic7
             if (regain > 0) modifyHealth(regain);
         }
 
-        public Rectangle CollisionRect()
-        {
-            Rectangle collisionRect = new Rectangle(_pos.X, _sprite.GetType)
-        }
+        
     }
 }

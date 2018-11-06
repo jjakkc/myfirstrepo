@@ -90,5 +90,20 @@ namespace Fantastic7
         {
             return _doors;
         }
+
+        public GObject removeObject(GObject go)
+        {
+            GObject found;
+            foreach (GObject g in _go)
+            {
+                if (g.Equals(go))
+                {
+                    found = g;
+                    _go.Remove(go);
+                    return found;
+                }
+            }
+            return null;
+        }
     }
 }
