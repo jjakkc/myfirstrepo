@@ -18,6 +18,7 @@ namespace Fantastic7
         public Room down;
         protected List<GObject> _go;
         protected List<GSprite> _gs;
+        public Rectangle floor;
 
         int direction = 1;
 
@@ -32,7 +33,8 @@ namespace Fantastic7
             Random r = new Random();
             _gs = new List<GSprite>();
             _gs.Add(new NSprite(new Rectangle(0, 0, 1280, 720), new Color(r.Next(0, 255), r.Next(0, 255), r.Next(0, 255))));
-            _gs.Add(new NSprite(new Rectangle(100, 100, 1280 - 200, 720 - 200), new Color(r.Next(0, 255), r.Next(0, 255), r.Next(0, 255))));
+            floor = new Rectangle(100, 100, 1280 - 200, 720 - 200);
+            _gs.Add(new NSprite(floor, new Color(r.Next(0, 255), r.Next(0, 255), r.Next(0, 255))));
 
             _go = new List<GObject>();
         }

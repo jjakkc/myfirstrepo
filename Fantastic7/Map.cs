@@ -27,7 +27,7 @@ namespace Fantastic7
         // Used for delay in key presses
         private int elapsedTime = 0;
         private int millisecDelay = 50;
-        private bool tabPressed = false;
+        private bool showMinimap = false;
         Direction direction;
 
         enum Direction
@@ -267,7 +267,11 @@ namespace Fantastic7
             if(elapsedTime > millisecDelay)
             {
                 elapsedTime = 0;
-                //InputRoomChange();
+                //bring up minimap
+                if (Keyboard.GetState().IsKeyDown(Keys.Tab))
+                {
+                    showMinimap = !showMinimap;
+                }
             }
             MovePlayer();
         }
@@ -283,59 +287,16 @@ namespace Fantastic7
 
             //This draws the map over top off the room
             //Used for testing purposes when checking the map generation
-            if (tabPressed)
+            if (showMinimap)
             {
                 miniMap.draw(sb, scale);
             }
         }
 
-        // Testing purpose to move thru map rooms using arrow keys
-        //public void InputRoomChange()
-        //{
-        //    int roomIndex = -1;
-        //    KeyboardState keyboardState = Keyboard.GetState();
-
-        //    // bring up minimap
-        //    if (keyboardState.IsKeyDown(Keys.Tab))
-        //    {
-        //        tabPressed = !tabPressed;
-        //    }
-
-        //    // move to room based on arrow key
-        //    if (keyboardState.IsKeyDown(Keys.Up))
-        //    {
-        //        if (_currRoom.up != null)
-        //        {
-        //            roomIndex = getRoom(_currRoom.up);
-        //        }
-        //    }
-        //    else if (keyboardState.IsKeyDown(Keys.Left))
-        //    {
-        //        if (_currRoom.left != null)
-        //        {
-        //            roomIndex = getRoom(_currRoom.left);
-        //        }
-        //    }
-        //    else if (keyboardState.IsKeyDown(Keys.Right))
-        //    {
-        //        if (_currRoom.right != null)
-        //        {
-        //            roomIndex = getRoom(_currRoom.right);
-        //        }
-        //    }
-        //    else if (keyboardState.IsKeyDown(Keys.Down))
-        //    {
-        //        if (_currRoom.down != null)
-        //        {
-        //            roomIndex = getRoom(_currRoom.down);
-        //        }
-        //    }
-
-        //    if (roomIndex != -1 && _rooms[roomIndex] != null)
-        //        changeRoom(roomIndex);
-        //}
-
-        // <summary>
+        /// <summary>
+        /// Uses wasd keys to move player within bounds of room. Detects when player
+        /// touches a door object.
+        /// </summary>
         public void MovePlayer()
         {
             int speed = 10;
@@ -350,96 +311,83 @@ namespace Fantastic7
             if (keyboardState.IsKeyDown(Keys.D))
                 _player.move(new Vector2(speed, 0));
 
-            // Room collision detection test. Limit movement to match inner rectangle (floor) dimensions
-            // mapBounds is taking screen size - wallOffset
-            int mapBoundsX = (1280 - 100 - _player.CollisionRect().Value.Width);
-            int mapBoundsY = (720 - 100 - _player.CollisionRect().Value.Height);
             int playerX = (int)_player.getPosition().X;
             int playerY = (int)_player.getPosition().Y;
+            int playerWidth = _player.CollisionRect().Value.Width;
+            int playerHeight = _player.CollisionRect().Value.Height;
 
-            if (_player.getPosition().X < 100)
-                _player.jumpTo(new Vector2(100, playerY));
-            if (_player.getPosition().X > mapBoundsX)
-                _player.jumpTo(new Vector2(mapBoundsX, playerY));
-            if (_player.getPosition().Y < 100)
-                _player.jumpTo(new Vector2(playerX, 100));
-            if (_player.getPosition().Y > mapBoundsY)
-                _player.jumpTo(new Vector2(playerX, mapBoundsY));
+            // Room collision detection test. Limit movement to match inner rectangle (floor) dimensions
+            if (_player.getPosition().X < _currRoom.floor.X)
+                _player.jumpTo(new Vector2(_currRoom.floor.X, playerY));
+            if (_player.getPosition().X > (_currRoom.floor.X + _currRoom.floor.Width - playerWidth))
+                _player.jumpTo(new Vector2((_currRoom.floor.X + _currRoom.floor.Width - playerWidth), playerY));
+            if (_player.getPosition().Y < _currRoom.floor.Y)
+                _player.jumpTo(new Vector2(playerX, _currRoom.floor.Y));
+            if (_player.getPosition().Y > (_currRoom.floor.Y + _currRoom.floor.Height - playerHeight))
+                _player.jumpTo(new Vector2(playerX, (_currRoom.floor.Y + _currRoom.floor.Height - playerHeight)));
 
             CheckDoorCollision();
         }
 
-        public bool CheckDoorCollision()
+        /// <summary>
+        /// 
+        /// </summary>
+        public void CheckDoorCollision()
         {
-            NSprite playerSprite = (NSprite)_player.getSprite();
             GObject[] doors = _currRoom.getDoors();
             foreach (GObject door in doors)
             {
-                NSprite doorSprite = (NSprite)door.getSprite();
-                if (playerSprite.getRect().Intersects(doorSprite.getRect()))
+                if (_player.CollisionRect().Value.Intersects(door.CollisionRect().Value))
                 {
-                    //Vector2 doorLeft = new Vector2(0, )
+                    int doorY = door.CollisionRect().Value.Y;
+                    int doorX = door.CollisionRect().Value.X;
+                    int doorIndex = -1;
+
+                    // Looking for which side door player is touching
+                    if (doorY <= 0 && doorX < 1280 / 2)
+                    {
+                        doorIndex = getRoom(_currRoom.up);
+                        direction = Direction.North;
+                    }
+                    else if (doorX <= 0 && doorY < 720 / 2)
+                    {
+                        doorIndex = getRoom(_currRoom.left);
+                        direction = Direction.West;
+                    }
+                    else if (doorX > 1000 && doorY < 720 / 2)
+                    {
+                        doorIndex = getRoom(_currRoom.right);
+                        direction = Direction.East;
+                    }
+                    else
+                    {
+                        doorIndex = getRoom(_currRoom.down);
+                        direction = Direction.South;
+                    }
+
+                    // Changing rooms and also moving player into new room while facing correct position
+                    if (doorIndex != -1)
+                    {
+                        _currRoom.removeObject(_player);
+                        changeRoom(doorIndex);
+                        // move player to new room
+                        //_player = (Entity)g;
+                        _currRoom.addObject(_player);
+                        // Based on door entered, reposition player location
+                        if (direction.Equals(Direction.North))
+                            _player.jumpTo(new Vector2(1280 / 2, 720 - 190));
+                        else if (direction.Equals(Direction.East))
+                            _player.jumpTo(new Vector2(190, 720 / 2));
+                        else if (direction.Equals(Direction.South))
+                            _player.jumpTo(new Vector2(1280 / 2, 190));
+                        else if (direction.Equals(Direction.West))
+                            _player.jumpTo(new Vector2(1280 - 190, 720 / 2));
+                    }
+
                     Console.Out.WriteLine("Player touched door at X:" +
-                        doorSprite.getRect().X + " Y: " + doorSprite.getRect().Y);
-                    return true;
+                        door.CollisionRect().Value.X + " Y: " + door.CollisionRect().Value.Y);
                 }
-
-                //if (_player.CollisionRect().Value.Intersects(door.CollisionRect().Value))
-                //{
-                //    if (door.CollisionRect().Value == null)
-                //        break;
-
-                //    int doorY = door.CollisionRect().Value.Y;
-                //    int doorX = door.CollisionRect().Value.X;
-                //    int doorIndex = -1;
-
-                //    // Looking for which side door player is touching
-                //    if (doorY <= 0 && doorX < 1280 / 2)
-                //    {
-                //        doorIndex = getRoom(_currRoom.up);
-                //        direction = Direction.North;
-                //    }
-                //    else if (doorX <= 0 && doorY < 720 / 2)
-                //    {
-                //        doorIndex = getRoom(_currRoom.left);
-                //        direction = Direction.West;
-                //    }
-                //    else if (doorX > 1000 && doorY < 720 / 2)
-                //    {
-                //        doorIndex = getRoom(_currRoom.right);
-                //        direction = Direction.East;
-                //    }
-                //    else
-                //    {
-                //        doorIndex = getRoom(_currRoom.down);
-                //        direction = Direction.South;
-                //    }
-
-                //    if (doorIndex != -1)
-                //    {
-                //        GObject g = _currRoom.removeObject(_player);
-                //        changeRoom(doorIndex);
-                //        // move player to new room
-                //        _player = (Entity)g;
-                //        _currRoom.addObject(_player);
-                //        // Based on door entered reposition
-                //        if (direction.Equals(Direction.North))
-                //            _player.jumpTo(new Vector2(1280 / 2, 720 - 250));
-                //        else if (direction.Equals(Direction.East))
-                //            _player.jumpTo(new Vector2(250, 720 / 2));
-                //        else if (direction.Equals(Direction.South))
-                //            _player.jumpTo(new Vector2(1280 / 2, 250));
-                //        else if (direction.Equals(Direction.West))
-                //            _player.jumpTo(new Vector2(1280 - 250, 720 / 2));
-                //    }
-
-
-                    //Console.Out.WriteLine("Player touched door at X:" +
-                    //    door.CollisionRect().Value.X + " Y: " + door.CollisionRect().Value.Y);
-                    //return true;
-                //}
             }
-            return false;
         }
 
         public Room CreateRandRoom()
@@ -472,6 +420,9 @@ namespace Fantastic7
 
         public int getRoom(Room room)
         {
+            if (room == null)
+                return -1;
+
             for (int i = 0; i < _rooms.Length; i++)
             {
                 if (_rooms[i] == room)
